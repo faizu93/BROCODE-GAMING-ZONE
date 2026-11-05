@@ -74,14 +74,14 @@ export const STATIONS = [
       id: `PS5-${String(num).padStart(2, '0')}`,
       type: 'PS5',
       label: `PlayStation 5 · Zone ${num}`,
-      spec: 'PS5 Slim · 4K 120Hz TV · DualSense controllers',
+      spec: 'PS5 Slim · 4K 120Hz TV · Racing wheel simulator + DualSense controllers',
     };
   }),
 ];
 
 export const STATION_TYPES = {
   PC: { label: 'Gaming PC', singular: 'PC' },
-  PS5: { label: 'PlayStation 5', singular: 'PS5' },
+  PS5: { label: 'PlayStation 5 (Wheel Simulator)', singular: 'PS5' },
 };
 
 export const BOOKING_STATUSES = [

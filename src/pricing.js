@@ -6,6 +6,7 @@
  *   PlayStation 5  : Rs.150 per hour, Rs.100 per 30 minutes
  *   PS5 controller : Rs.100 solo · Rs.160 duo · Rs.240 trio · Rs.320 squad
  *                    (Rs.100 solo, then Rs.80 per additional player)
+ *                    Charged once per booking, no matter how long you play.
  *   PS5 squad deal : 4 players all in — Rs.320 (1 hr) · Rs.600 (2 hrs) · Rs.900 (3 hrs)
  *
  * Any booking is billed as (full hours x hourly rate) + (Rs.50 / Rs.100 for a
@@ -47,8 +48,8 @@ export const PRICING = {
     ],
     perks: [
       'PS5 Slim on a 4K 120Hz TV',
-      'FIFA 26, Tekken 8, WWE 2K, Mortal Kombat',
-      'Extra DualSense controllers available',
+      'Wheel simulator — Forza Horizon 5, Need for Speed, Gran Turismo and more',
+      'FIFA 26, Tekken 8, WWE 2K · Extra DualSense controllers available',
     ],
   },
 };

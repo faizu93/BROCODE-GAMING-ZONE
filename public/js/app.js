@@ -65,7 +65,7 @@
     return labels.slice(0, count).map((label, index) => {
       const players = index + 1;
       return `${label} ${formatMoney(players === 1 ? solo : perPerson * players)}`;
-    }).join(' · ');
+    }).join(' · ') + ' (once per booking)';
   }
 
   function formatDateLabel(iso) {
