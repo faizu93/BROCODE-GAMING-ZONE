@@ -1,0 +1,25 @@
+{
+  "name": "Bro Code Gaming Zone",
+  "short_name": "Bro Code",
+  "description": "Gaming cafe in Kalwa Naka, Thane. 8 gaming PCs plus PlayStation 5 controller and racing wheel setups. Book your slot, check offers and tournament updates.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#07070a",
+  "theme_color": "#07070a",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

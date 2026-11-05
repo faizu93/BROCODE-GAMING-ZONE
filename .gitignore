@@ -4,5 +4,13 @@ npm-debug.log*
 # Runtime database — lives on the host's persistent disk, not in Git.
 data/
 
+# Android app: build output and signing material. Never commit the keystore.
+android/build/
+android/keystore/
+*.jks
+*.keystore
+android/*.apk
+android/*.idsig
+
 .env
 .DS_Store
