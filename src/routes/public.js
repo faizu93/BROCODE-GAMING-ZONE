@@ -14,8 +14,10 @@ import {
   isValidDuration,
   maxPlayers,
   getPlan,
+  formatMoney,
 } from '../pricing.js';
 import { load, save, newId } from '../store.js';
+import { notify } from '../push.js';
 import * as time from '../time.js';
 
 const router = express.Router();
@@ -302,6 +304,18 @@ router.post('/bookings', (req, res) => {
 
   bookings.push(booking);
   save('bookings', bookings);
+
+  // Alert the owner's devices. Fire and forget so the customer is not kept waiting.
+  notify({
+    title: `New booking · ${booking.code}`,
+    body:
+      `${booking.name} · ${booking.phone}\n` +
+      `${booking.stationLabel} · ${time.formatDateLabel(date)} · ` +
+      `${time.formatTimeLabel(booking.start)}–${time.formatTimeLabel(end)}\n` +
+      `${formatMoney(booking.quotedTotal)} · ${booking.players} player(s)`,
+    url: '/admin',
+    tag: `booking-${booking.id}`,
+  }).catch((error) => console.error('[push] booking alert failed:', error.message));
 
   return res.status(201).json({
     ok: true,

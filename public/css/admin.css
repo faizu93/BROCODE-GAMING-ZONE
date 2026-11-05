@@ -148,6 +148,26 @@
 .stat-card span { display: block; margin-top: 6px; font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
 .stat-card.accent b { color: var(--red); }
 
+/* ------------------------------------------------------ booking alert setup */
+
+.notify-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 16px 20px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--red);
+}
+
+.notify-card__text { flex: 1 1 320px; }
+.notify-card__text h3 { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; margin: 0 0 4px; }
+.notify-card__text p { margin: 0; font-size: 0.88rem; }
+.notify-card__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.notify-card--on { border-left-color: var(--ok); }
+
 /* ------------------------------------------------------------------ tables */
 
 .table-scroll { overflow-x: auto; border: 1px solid var(--line); }

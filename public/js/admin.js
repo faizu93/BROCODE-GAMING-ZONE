@@ -32,6 +32,39 @@
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   };
 
+  /** '14:30' -> '2:30 PM' */
+  function formatTime(value) {
+    const match = /^(\d{1,2}):(\d{2})$/.exec(String(value || ''));
+    if (!match) return String(value || '');
+
+    const hours24 = Number(match[1]);
+    const minutes = Number(match[2]);
+    const suffix = hours24 >= 12 ? 'PM' : 'AM';
+    const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
+
+    return minutes === 0 ? `${hours12} ${suffix}` : `${hours12}:${pad(minutes)} ${suffix}`;
+  }
+
+  function shopName() {
+    return (state.settings && state.settings.cafe && state.settings.cafe.name) || 'Bro Code Gaming Zone';
+  }
+
+  /** Pre-written WhatsApp confirmation for the customer, ready to send in one tap. */
+  function whatsappFor(booking) {
+    const message =
+      `Hi ${booking.name}, good news! Your slot at ${shopName()} is CONFIRMED.\n\n` +
+      `Booking code: ${booking.code}\n` +
+      `Station: ${booking.stationLabel}\n` +
+      `Date: ${formatDateLabel(booking.date)}\n` +
+      `Time: ${formatTime(booking.start)} to ${formatTime(booking.end)}\n` +
+      `Players: ${booking.players}\n` +
+      `Amount: ${money(booking.quotedTotal)}\n\n` +
+      'Please reach 5 minutes early. Pay at the counter or by UPI when you arrive. ' +
+      'Show this booking code at the counter. See you soon!';
+
+    return `https://wa.me/91${String(booking.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+  }
+
   let toastTimer = null;
 
   function toast(message, tone = '') {
@@ -241,6 +274,10 @@
             <button class="btn btn-quiet btn-sm" data-action="decline" data-id="${booking.id}">Decline</button>
           </li>`).join('')
       : '<li class="mini-item" style="border-left-color:var(--line)"><span class="mini-meta">Nothing is waiting for approval. Nice.</span></li>';
+
+    syncExistingSubscription()
+      .then(() => refreshNotifyUi())
+      .catch(() => {});
   }
 
   /* -------------------------------------------------------------- bookings */
@@ -290,6 +327,9 @@
                 ${booking.status === 'confirmed'
                   ? `<button class="btn btn-ghost btn-sm" data-action="completed" data-id="${booking.id}">Mark done</button>`
                   : ''}
+                ${booking.status === 'confirmed' || booking.status === 'completed'
+                  ? `<button class="btn btn-quiet btn-sm" data-action="whatsapp" data-id="${booking.id}">WhatsApp</button>`
+                  : ''}
                 <button class="btn btn-quiet btn-sm" data-action="note" data-id="${booking.id}">Note</button>
                 <button class="btn btn-quiet btn-sm" data-action="delete" data-id="${booking.id}">Delete</button>
               </div>
@@ -299,9 +339,47 @@
   }
 
   async function updateBooking(id, patch, successMessage) {
-    await api(`/api/admin/bookings/${id}`, { method: 'PATCH', body: patch });
+    const payload = await api(`/api/admin/bookings/${id}`, { method: 'PATCH', body: patch });
     toast(successMessage, 'ok');
     await Promise.all([loadBookings(), loadDashboard()]);
+    return payload.booking;
+  }
+
+  /** Because automatic WhatsApp needs a paid WhatsApp Business account, we hand
+      the owner a ready-to-send message instead — one tap and it is on its way. */
+  function openWhatsappConfirmModal(booking) {
+    openModal(`
+      <h3>Tell ${escapeHtml(booking.name)}</h3>
+      <p class="modal-sub">
+        ${escapeHtml(booking.code)} · ${escapeHtml(booking.stationLabel)} ·
+        ${escapeHtml(formatDateLabel(booking.date))} ·
+        ${escapeHtml(formatTime(booking.start))} – ${escapeHtml(formatTime(booking.end))}
+      </p>
+      <p class="modal-sub">
+        Tap the button below — WhatsApp opens with the confirmation already written to
+        <strong>${escapeHtml(booking.phone)}</strong>. Just press send.
+      </p>
+
+      <div class="ticket show" style="margin-bottom:20px">
+        <h4>Message preview</h4>
+        <p style="white-space:pre-wrap;font-size:.9rem">Your slot at ${escapeHtml(shopName())} is CONFIRMED.
+Booking code: ${escapeHtml(booking.code)}
+Station: ${escapeHtml(booking.stationLabel)}
+Date: ${escapeHtml(formatDateLabel(booking.date))}
+Time: ${escapeHtml(formatTime(booking.start))} to ${escapeHtml(formatTime(booking.end))}
+Amount: ${escapeHtml(money(booking.quotedTotal))}</p>
+      </div>
+
+      <a class="btn btn-whatsapp btn-full" target="_blank" rel="noopener"
+         href="${escapeHtml(whatsappFor(booking))}" id="waSend">Send on WhatsApp</a>
+      <button class="btn btn-quiet btn-full" type="button" id="waSkip"
+              style="margin-top:10px">Skip for now</button>
+    `);
+
+    $('#waSend').addEventListener('click', () => {
+      toast('Opening WhatsApp…', 'ok');
+    });
+    $('#waSkip').addEventListener('click', closeModal);
   }
 
   function openNoteModal(id) {
@@ -339,11 +417,16 @@
       const { action, id } = button.dataset;
 
       try {
-        if (action === 'confirm') await updateBooking(id, { status: 'confirmed' }, 'Booking confirmed.');
-        else if (action === 'decline') await updateBooking(id, { status: 'declined' }, 'Booking declined.');
+        if (action === 'confirm') {
+          const booking = await updateBooking(id, { status: 'confirmed' }, 'Booking confirmed.');
+          if (booking) openWhatsappConfirmModal(booking);
+        } else if (action === 'decline') await updateBooking(id, { status: 'declined' }, 'Booking declined.');
         else if (action === 'completed') await updateBooking(id, { status: 'completed' }, 'Booking marked as completed.');
         else if (action === 'note') openNoteModal(id);
-        else if (action === 'delete') {
+        else if (action === 'whatsapp') {
+          const booking = state.bookings.find((item) => item.id === id);
+          if (booking) openWhatsappConfirmModal(booking);
+        } else if (action === 'delete') {
           if (!window.confirm('Delete this booking permanently?')) return;
           await api(`/api/admin/bookings/${id}`, { method: 'DELETE' });
           toast('Booking deleted.', 'ok');
@@ -809,6 +892,171 @@
     });
   }
 
+  /* -------------------------------------------------------- booking alerts */
+
+  const PUSH_SUPPORTED =
+    'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+  let pushPublicKey = null;
+  let pushSynced = false;
+
+  function deviceLabel() {
+    return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'Phone' : 'Computer';
+  }
+
+  function keyToBytes(base64) {
+    const padded = (base64 + '='.repeat((4 - (base64.length % 4)) % 4))
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+    const raw = window.atob(padded);
+    return Uint8Array.from(raw, (char) => char.charCodeAt(0));
+  }
+
+  async function currentSubscription() {
+    if (!PUSH_SUPPORTED) return null;
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) return null;
+    return registration.pushManager.getSubscription();
+  }
+
+  /** The free hosting plan forgets its saved devices on every restart. Loading
+      the dashboard quietly re-registers this one, so alerts work again by itself. */
+  async function syncExistingSubscription() {
+    if (pushSynced || !PUSH_SUPPORTED || Notification.permission !== 'granted') return false;
+    pushSynced = true;
+
+    try {
+      const subscription = await currentSubscription();
+      if (!subscription) return false;
+
+      await api('/api/admin/push/subscribe', {
+        method: 'POST',
+        body: { subscription: subscription.toJSON(), label: deviceLabel() },
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async function refreshNotifyUi() {
+    const card = $('#notifyCard');
+    if (!card) return;
+
+    card.hidden = false;
+    card.classList.remove('notify-card--on');
+
+    const status = $('#notifyStatus');
+    const enable = $('#notifyEnable');
+    const test = $('#notifyTest');
+    const off = $('#notifyDisable');
+
+    enable.hidden = true;
+    test.hidden = true;
+    off.hidden = true;
+
+    if (!PUSH_SUPPORTED) {
+      status.textContent =
+        'This browser cannot show notifications. Open the dashboard in Chrome or Edge to switch them on.';
+      return;
+    }
+
+    if (Notification.permission === 'denied') {
+      status.textContent =
+        'Notifications are blocked for this site. Allow them from the padlock icon in ' +
+        'the address bar, then reload this page.';
+      return;
+    }
+
+    const subscription = await currentSubscription();
+
+    if (subscription) {
+      card.classList.add('notify-card--on');
+      status.textContent = 'On — this device gets an alert the moment a customer books a slot.';
+      test.hidden = false;
+      off.hidden = false;
+      return;
+    }
+
+    status.textContent = 'Off — turn them on to get an alert the moment a customer books a slot.';
+    enable.hidden = false;
+  }
+
+  async function enablePush() {
+    if (!PUSH_SUPPORTED) return;
+
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      toast('Notifications are blocked. Allow them in your browser settings.', 'err');
+      await refreshNotifyUi();
+      return;
+    }
+
+    const registration = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) await existing.unsubscribe();
+
+    if (!pushPublicKey) {
+      const info = await api('/api/admin/push');
+      pushPublicKey = info.publicKey;
+    }
+
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: keyToBytes(pushPublicKey),
+    });
+
+    await api('/api/admin/push/subscribe', {
+      method: 'POST',
+      body: { subscription: subscription.toJSON(), label: deviceLabel() },
+    });
+
+    pushSynced = true;
+    toast('Notifications are on for this device.', 'ok');
+    await refreshNotifyUi();
+  }
+
+  async function disablePush() {
+    const subscription = await currentSubscription();
+
+    if (subscription) {
+      await api('/api/admin/push/unsubscribe', {
+        method: 'POST',
+        body: { endpoint: subscription.endpoint },
+      });
+      await subscription.unsubscribe();
+    }
+
+    toast('Notifications are off for this device.');
+    await refreshNotifyUi();
+  }
+
+  function initNotifications() {
+    if (!$('#notifyCard')) return;
+
+    $('#notifyEnable').addEventListener('click', () => {
+      enablePush().catch((error) => toast(error.message, 'err'));
+    });
+
+    $('#notifyDisable').addEventListener('click', () => {
+      disablePush().catch((error) => toast(error.message, 'err'));
+    });
+
+    $('#notifyTest').addEventListener('click', async () => {
+      try {
+        const result = await api('/api/admin/push/test', { method: 'POST' });
+        if (result.sent) toast('Test notification sent.', 'ok');
+        else toast('No device is registered yet. Turn notifications on first.', 'err');
+      } catch (error) {
+        toast(error.message, 'err');
+      }
+    });
+
+    refreshNotifyUi().catch(() => {});
+  }
+
   /* ------------------------------------------------------------------ boot */
 
   function boot() {
@@ -821,6 +1069,7 @@
     initTournaments();
     initRegistrations();
     initSettings();
+    initNotifications();
 
     $('#refreshDashboard').addEventListener('click', () => {
       loadDashboard().then(() => toast('Dashboard refreshed.', 'ok')).catch((error) => toast(error.message, 'err'));

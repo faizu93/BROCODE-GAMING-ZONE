@@ -34,6 +34,12 @@ services:
       # Public address of the site. Change this if Render gives a different URL.
       - key: SITE_URL
         value: https://brocode-gaming-zone.onrender.com
+      # Browser push keys for booking alerts on the owner's devices.
+      # These are safe to keep here; the private key only signs the push payload.
+      - key: VAPID_PUBLIC_KEY
+        value: BJ9G5sF_vqRVW6MGKNOpElsIuTpAn1UqQkRhatVOhoEVrUG4jG23N8NLMHDPBALVStnesQBBVIP5yPbkjRx__UI
+      - key: VAPID_PRIVATE_KEY
+        value: UPpEY4qgjJhuZzcmCnwsDCQ10RyzMXNoa3lFm5nY0lw
 
     # ------------------------------------------------------------------------
     # UNCOMMENT THIS BLOCK (and change plan: free to plan: starter) to keep the

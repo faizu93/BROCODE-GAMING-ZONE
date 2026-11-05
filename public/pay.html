@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, follow">
+  <title>Pay for your slot | Bro Code Gaming Zone</title>
+  <meta name="description" content="Pay for your Bro Code Gaming Zone booking by UPI. Enter your booking code to see the exact amount and a scannable payment QR.">
+  <meta name="theme-color" content="#07070a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2307070a'/><text x='16' y='23' font-family='Arial' font-size='16' font-weight='bold' fill='%23ff1f3d' text-anchor='middle'>BC</text></svg>">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="/">
+      <span class="brand-mark">BC</span>
+      <span class="brand-text">
+        <strong>BRO CODE</strong>
+        <em>GAMING ZONE</em>
+      </span>
+    </a>
+
+    <div class="nav-cta">
+      <a class="btn btn-ghost btn-sm" href="/#booking">Book a slot</a>
+      <a class="btn btn-primary btn-sm" href="/">Back to site</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="section" style="padding-top:120px">
+    <div class="wrap" style="max-width:880px">
+
+      <div class="section-head">
+        <span class="eyebrow">Online payment · UPI</span>
+        <h2>Pay for your slot.</h2>
+        <p>
+          Enter the booking code from your confirmation and we will show the exact amount
+          with a scannable UPI QR.
+        </p>
+      </div>
+
+      <div class="panel">
+        <div class="field">
+          <label for="payCode">Your booking code</label>
+          <input type="text" id="payCode" placeholder="BC-XXXX" maxlength="12"
+                 autocomplete="off" autocapitalize="characters" spellcheck="false">
+          <div class="hint">It looks like BC-4F7Q. You will find it on your booking receipt and in our WhatsApp reply.</div>
+        </div>
+
+        <div class="form-msg" id="payError"></div>
+
+        <button class="btn btn-primary btn-full" type="button" id="payLookup">Show my amount</button>
+      </div>
+
+      <div class="panel" id="payResult" hidden style="margin-top:26px">
+        <div class="summary-title">
+          <span id="payHeading">Booking</span>
+          <span class="chip" id="payStatus">Pending</span>
+        </div>
+
+        <dl class="summary-lines" id="payLines"></dl>
+
+        <div class="pay-panel">
+          <h4>Pay by UPI</h4>
+          <div class="pay-grid">
+            <div class="pay-qr">
+              <img id="payQr" alt="UPI payment QR code" width="220" height="220">
+            </div>
+
+            <div class="pay-info">
+              <div class="pay-amount">Amount due <b id="payAmount">—</b></div>
+
+              <div class="pay-upi">
+                <span class="pay-upi__id" id="payUpiId">—</span>
+                <button type="button" class="btn btn-quiet btn-sm" id="payCopy">Copy UPI ID</button>
+              </div>
+
+              <p class="muted" id="payNote"></p>
+
+              <a class="btn btn-primary btn-sm" id="payApp">Open my UPI app</a>
+              <a class="btn btn-whatsapp btn-sm" id="payWhatsapp" target="_blank" rel="noopener">
+                Send payment screenshot
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="note-strip" style="margin-top:24px">
+          Paid already? Send the screenshot on WhatsApp and we will mark your slot as paid.
+          Your slot is held once our team confirms it.
+        </div>
+
+        <div class="ticket-actions" style="margin-top:22px">
+          <button class="btn btn-quiet btn-sm" type="button" id="payAgain">Check another code</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/pay.js"></script>
+</body>
+</html>

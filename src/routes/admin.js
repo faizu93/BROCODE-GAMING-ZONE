@@ -16,6 +16,7 @@ import {
   clearCookieHeader,
 } from '../auth.js';
 import { load, save, newId } from '../store.js';
+import { publicKey, subscribe, unsubscribe, notify, deviceCount } from '../push.js';
 import * as time from '../time.js';
 
 const router = express.Router();
@@ -57,6 +58,36 @@ router.get('/session', (req, res) => {
 /* ---------------------------------------------------------- everything else */
 
 router.use(requireAdmin);
+
+/* --------------------------------------------------------------------- push */
+
+/** The public VAPID key the browser needs before it can subscribe. */
+router.get('/push', (req, res) => {
+  res.json({ ok: true, publicKey, devices: deviceCount() });
+});
+
+router.post('/push/subscribe', (req, res) => {
+  const result = subscribe((req.body || {}).subscription, (req.body || {}).label);
+
+  if (!result.ok) return res.status(400).json(result);
+  return res.json(result);
+});
+
+router.post('/push/unsubscribe', (req, res) => {
+  res.json(unsubscribe((req.body || {}).endpoint));
+});
+
+/** Fires a test notification so the owner can confirm it works. */
+router.post('/push/test', async (req, res) => {
+  const result = await notify({
+    title: 'Test notification',
+    body: 'Notifications are working. You will be alerted here for every new booking.',
+    url: '/admin',
+    tag: 'bro-code-test',
+  });
+
+  return res.json(result);
+});
 
 /* ------------------------------------------------------------------ summary */
 
