@@ -16,7 +16,8 @@ export const CAFE = {
   tagline: 'Squad Up. Level Up. Dominate.',
   intro:
     'Kalwa Naka\'s home ground for competitive gaming. High refresh-rate gaming PCs, ' +
-    'a PlayStation 5 zone and a crowd that plays to win. Book your slot before it is gone.',
+    'PlayStation 5 controller and racing wheel setups, and a crowd that plays to win. ' +
+    'Book your slot before it is gone.',
 
   contact: {
     // Digits only, with country code. Used for wa.me links.
@@ -68,20 +69,24 @@ export const STATIONS = [
       spec: 'RTX 5060 · i5 12400F · 240Hz · Mechanical',
     };
   }),
-  ...Array.from({ length: 2 }, (_, i) => {
-    const num = i + 1;
-    return {
-      id: `PS5-${String(num).padStart(2, '0')}`,
-      type: 'PS5',
-      label: `PlayStation 5 · Zone ${num}`,
-      spec: 'PS5 Slim · 4K 120Hz TV · Racing wheel simulator + DualSense controllers',
-    };
-  }),
+  {
+    id: 'PS5C-01',
+    type: 'PS5C',
+    label: 'PS5 Controller Setup',
+    spec: 'PS5 Slim · 4K 120Hz TV · 4 DualSense controllers',
+  },
+  {
+    id: 'PS5W-01',
+    type: 'PS5W',
+    label: 'PS5 Wheel Simulator',
+    spec: 'PS5 Slim · 4K 120Hz TV · Racing wheel, pedals and shifter',
+  },
 ];
 
 export const STATION_TYPES = {
   PC: { label: 'Gaming PC', singular: 'PC' },
-  PS5: { label: 'PlayStation 5 (Wheel Simulator)', singular: 'PS5' },
+  PS5C: { label: 'PlayStation 5 (Controller)', singular: 'PS5 Controller' },
+  PS5W: { label: 'PlayStation 5 (Wheel Simulator)', singular: 'PS5 Wheel' },
 };
 
 export const BOOKING_STATUSES = [

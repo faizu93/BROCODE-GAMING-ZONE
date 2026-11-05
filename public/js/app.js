@@ -57,15 +57,14 @@
     return `Rs.${Number(amount || 0).toLocaleString('en-IN')}`;
   }
 
+  /** "Solo Rs.100 · Duo Rs.160 · Trio Rs.240 · Squad Rs.320" for a group plan. */
   function controllerBreakdown(plan) {
-    if (!plan || !plan.playerCharge) return '';
-    const { solo, perPerson, maxPlayers } = plan.playerCharge;
+    if (!plan || !plan.groupRates) return '';
     const labels = ['Solo', 'Duo', 'Trio', 'Squad'];
-    const count = Math.max(1, Math.min(Number(maxPlayers) || 1, labels.length));
+    const count = Math.max(1, Math.min(Number(plan.maxPlayers) || 1, labels.length));
     return labels.slice(0, count).map((label, index) => {
-      const players = index + 1;
-      return `${label} ${formatMoney(players === 1 ? solo : perPerson * players)}`;
-    }).join(' · ') + ' (once per booking)';
+      return `${label} ${formatMoney(plan.groupRates[index])}`;
+    }).join(' · ');
   }
 
   function formatDateLabel(iso) {
@@ -193,7 +192,7 @@
     $('#heroBg').style.backgroundImage = `url("${IMAGES.hero}")`;
 
     $('#quickNote').textContent =
-      `PS5 controller charge: ${controllerBreakdown(state.rates.PS5) || 'Rs.100 Solo · Rs.160 Duo · Rs.240 Trio · Rs.320 Squad'}`;
+      `PS5 controller per hour: ${controllerBreakdown(state.rates.PS5C) || 'Solo Rs.100 · Duo Rs.160 · Trio Rs.240 · Squad Rs.320'}`;
 
     $('#pricingBlurb').textContent =
       'Pay only for the time you play — longer sessions get better value, and squads on the ' +
@@ -204,7 +203,9 @@
       'stations are still free.';
 
     const pcCount = state.stations.filter((s) => s.type === 'PC').length;
-    const ps5Count = state.stations.filter((s) => s.type === 'PS5').length;
+    const controllerCount = state.stations.filter((s) => s.type === 'PS5C').length;
+    const wheelCount = state.stations.filter((s) => s.type === 'PS5W').length;
+    const ps5Count = controllerCount + wheelCount;
 
     document.querySelectorAll('.js-whatsapp').forEach((link) => {
       if (!link.getAttribute('href')) {
@@ -230,18 +231,31 @@
       </div>`).join('');
 
     // Quick rate card in the hero
-    $('#quickRates').innerHTML = Object.values(state.rates).map((plan) => `
+    $('#quickRates').innerHTML = Object.values(state.rates).map((plan) => {
+      const detail = plan.group
+        ? `${formatMoney(plan.groupRates[0])}
+           <small>per hour solo · ${formatMoney(plan.groupRates[plan.groupRates.length - 1])} for a squad</small>`
+        : `${formatMoney(plan.hourly)}
+           <small>per hour · ${formatMoney(plan.halfHour)} for 30 mins</small>`;
+
+      return `
       <div class="rate-row">
         <span class="label">${escapeHtml(plan.label)}</span>
-        <span class="value">
-          ${formatMoney(plan.hourly)}
-          <small>per hour · ${formatMoney(plan.halfHour)} for 30 mins</small>
-        </span>
-      </div>`).join('');
+        <span class="value">${detail}</span>
+      </div>`;
+    }).join('');
 
     // Pricing section
+    const stationCounts = { PC: pcCount, PS5C: controllerCount, PS5W: wheelCount };
+
     $('#rateGrid').innerHTML = Object.values(state.rates).map((plan) => {
-      const chip = plan.type === 'PC' ? `${pcCount} stations` : `${ps5Count} zones`;
+      const units = plan.type === 'PC' ? 'stations' : 'setups';
+      const chip = `${stationCounts[plan.type] || 0} ${units}`;
+
+      const hero = plan.group ? `From ${formatMoney(plan.groupRates[0])}` : formatMoney(plan.hourly);
+      const heroNote = plan.group
+        ? 'Price per hour depends on how many play — see the table below'
+        : `${formatMoney(plan.halfHour)} for the first 30 minutes`;
 
       return `
         <article class="rate-card">
@@ -251,16 +265,16 @@
           </div>
 
           <div class="rate-hero">
-            <b>${formatMoney(plan.hourly)}</b>
+            <b>${escapeHtml(hero)}</b>
             <span>per hour</span>
           </div>
           <div class="muted" style="font-size:.9rem">
-            ${formatMoney(plan.halfHour)} for the first 30 minutes
+            ${escapeHtml(heroNote)}
           </div>
 
           <table class="price-table">
             <thead>
-              <tr><th>Play time</th><th>Price</th></tr>
+              <tr>${plan.tableHead.map((head) => `<th>${escapeHtml(head)}</th>`).join('')}</tr>
             </thead>
             <tbody>
               ${plan.table.map((row) => `
@@ -273,11 +287,6 @@
             ${plan.perks.map((perk) => `<li>${escapeHtml(perk)}</li>`).join('')}
           </ul>
 
-          ${plan.playerCharge ? `
-            <div class="note-strip" style="margin-top:20px">
-              Controller charge — ${controllerBreakdown(plan)}.
-            </div>` : ''}
-
           ${plan.squadPackages ? `
             <div class="note-strip note-strip--deal" style="margin-top:14px">
               <strong>Squad deal · 4 players, all in</strong><br>
@@ -288,7 +297,9 @@
     }).join('');
 
     $('#pricingNote').innerHTML =
-      'PS5 prices are per station. Controller charge — ' + controllerBreakdown(state.rates.PS5) +
+      'Controller prices are per setup and per hour. PS5 controller — ' +
+      (controllerBreakdown(state.rates.PS5C) ||
+        'Solo Rs.100 · Duo Rs.160 · Trio Rs.240 · Squad Rs.320') +
       '. Squad of 4? Grab the all-in deals above — console time and controllers included.';
 
     // Gallery
@@ -358,41 +369,32 @@
     return Array.from(set).sort((a, b) => a - b);
   }
 
+  /** Mirrors the server pricing: hours x hourly rate, plus the half hour rate. */
+  function timePriceFor(plan, minutes, players) {
+    const hourly = plan.group ? plan.groupRates[players - 1] : plan.hourly;
+    const halfHour = plan.group ? Math.round(hourly / 2) : plan.halfHour;
+    const mins = Number(minutes);
+
+    let total = Math.floor(mins / 60) * hourly;
+    if (mins % 60 >= 30) total += halfHour;
+    return Math.round(total);
+  }
+
   function quoteFor(type, minutes, players) {
     const plan = planFor(type);
-    if (!plan) return { timePrice: 0, playerCharge: 0, total: 0, players: 1, squadPackage: false };
+    if (!plan) return { total: 0, players: 1, squadPackage: false };
 
-    let count = 1;
-    if (plan.playerCharge) {
-      count = Math.max(1, Math.min(plan.playerCharge.maxPlayers, Number(players) || 1));
-    }
+    const max = Number(plan.maxPlayers) || 1;
+    const count = Math.max(1, Math.min(max, Number(players) || 1));
 
     if (plan.squadPackages) {
       const pkg = plan.squadPackages.find(
         (entry) => entry.players === count && Number(entry.minutes) === Number(minutes),
       );
-      if (pkg) {
-        return {
-          timePrice: pkg.price,
-          playerCharge: 0,
-          total: pkg.price,
-          players: count,
-          squadPackage: true,
-        };
-      }
+      if (pkg) return { total: pkg.price, players: count, squadPackage: true };
     }
 
-    const row = plan.table.find((entry) => Number(entry.minutes) === Number(minutes));
-    const timePrice = row ? row.price : 0;
-
-    let playerCharge = 0;
-    if (plan.playerCharge) {
-      playerCharge = count === 1
-        ? plan.playerCharge.solo
-        : plan.playerCharge.perPerson * count;
-    }
-
-    return { timePrice, playerCharge, total: timePrice + playerCharge, players: count, squadPackage: false };
+    return { total: timePriceFor(plan, minutes, count), players: count, squadPackage: false };
   }
 
   function currentQuote() {
@@ -493,7 +495,7 @@
     const startMinutes = timeToMinutes(state.start);
     const ready = startMinutes !== null && state.duration > 0;
 
-    const groups = { PC: $('#pcGrid'), PS5: $('#ps5Grid') };
+    const groups = { PC: $('#pcGrid'), PS5C: $('#ps5cGrid'), PS5W: $('#ps5wGrid') };
     let freeCount = 0;
 
     Object.keys(groups).forEach((type) => {
@@ -512,16 +514,18 @@
                   ${clash ? 'disabled' : ''}
                   aria-pressed="${state.stationId === station.id ? 'true' : 'false'}"
                   title="${escapeHtml(station.spec)}">
-            <strong>${escapeHtml(station.label.replace('Gaming ', '').replace('PlayStation 5 · ', 'PS5 '))}</strong>
+            <strong>${escapeHtml(station.label.replace('Gaming ', ''))}</strong>
             <span>${escapeHtml(subtitle)}</span>
           </button>`;
       }).join('');
     });
 
     const pcCount = state.stations.filter((s) => s.type === 'PC').length;
-    const ps5Count = state.stations.filter((s) => s.type === 'PS5').length;
+    const controllerCount = state.stations.filter((s) => s.type === 'PS5C').length;
+    const wheelCount = state.stations.filter((s) => s.type === 'PS5W').length;
     $('#pcCount').textContent = `· ${pcCount} stations`;
-    $('#ps5Count').textContent = `· ${ps5Count} zones`;
+    $('#ps5cCount').textContent = `· ${controllerCount} setup${controllerCount === 1 ? '' : 's'}`;
+    $('#ps5wCount').textContent = `· ${wheelCount} setup${wheelCount === 1 ? '' : 's'}`;
 
     if (!ready) {
       $('#availabilityNote').textContent = 'Pick a date, start time and duration to see availability.';
@@ -544,14 +548,14 @@
     const wrap = $('#bkPlayersWrap');
     const select = $('#bkPlayers');
 
-    if (!plan || !plan.playerCharge) {
+    if (!plan || !plan.group) {
       wrap.hidden = true;
       state.players = 1;
       return;
     }
 
     wrap.hidden = false;
-    const max = plan.playerCharge.maxPlayers;
+    const max = Number(plan.maxPlayers) || 1;
     const previous = Number(select.value) || 1;
 
     select.innerHTML = Array.from({ length: max }, (_, index) => {
@@ -559,7 +563,7 @@
       const quote = quoteFor(station.type, state.duration, count);
       const note = quote.squadPackage
         ? `squad deal ${formatMoney(quote.total)} all in`
-        : `controller ${formatMoney(quote.playerCharge)}`;
+        : `${formatMoney(quote.total)} total`;
       return `<option value="${count}">${count} ${count === 1 ? 'player' : 'players'} · ${note}</option>`;
     }).join('');
 
@@ -570,13 +574,14 @@
       (entry) => Number(entry.minutes) === Number(state.duration),
     );
     $('#bkPlayersHint').textContent = deal
-      ? `Controller charge: ${controllerBreakdown(plan)}. Squad of 4 for ` +
+      ? `Controller charge per hour — ${controllerBreakdown(plan)}. Squad of 4 for ` +
         `${formatDuration(state.duration)}: ${formatMoney(deal.price)} all in (console + controllers).`
-      : `Controller charge: ${controllerBreakdown(plan)}.`;
+      : `Controller charge per hour — ${controllerBreakdown(plan)}.`;
   }
 
   function renderSummary() {
     const station = stationById(state.stationId);
+    const plan = station ? planFor(station.type) : null;
     const quote = currentQuote();
 
     const lines = [
@@ -588,7 +593,7 @@
       ['Duration', state.duration ? formatDuration(state.duration) : '—'],
     ];
 
-    if (station && station.type === 'PS5') {
+    if (station && plan && plan.group) {
       lines.push(['Players', `${state.players}`]);
     }
 
@@ -596,8 +601,7 @@
       if (quote.squadPackage) {
         lines.push(['Squad deal (4 players)', formatMoney(quote.total)]);
       } else {
-        lines.push(['Station charge', formatMoney(quote.timePrice)]);
-        if (quote.playerCharge) lines.push(['Controller charge', formatMoney(quote.playerCharge)]);
+        lines.push(['Estimated charge', formatMoney(quote.total)]);
       }
     }
 

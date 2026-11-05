@@ -259,7 +259,8 @@ router.post('/bookings', (req, res) => {
     });
   }
 
-  const players = station.type === 'PS5'
+  const plan = getPlan(station.type);
+  const players = plan && plan.mode === 'group'
     ? Math.min(maxPlayers(station.type), Math.max(1, Number(body.players) || 1))
     : 1;
 
