@@ -458,14 +458,23 @@ router.patch('/settings', (req, res) => {
     const open = body.hours.open;
     const close = body.hours.close;
     if (time.timeToMinutes(open) === null || time.timeToMinutes(close) === null) {
-      return res.status(400).json({ ok: false, error: 'Please use 24 hour times such as 11:00.' });
+      return res.status(400).json({ ok: false, error: 'Please use 24 hour times such as 10:00.' });
     }
-    if (time.timeToMinutes(open) >= time.timeToMinutes(close)) {
-      return res.status(400).json({ ok: false, error: 'Closing time must be after opening time.' });
+    if (time.timeToMinutes(open) === time.timeToMinutes(close)) {
+      return res.status(400).json({ ok: false, error: 'Opening and closing time cannot be the same.' });
     }
+    // A close time earlier than the open time means the cafe trades past
+    // midnight — a full 24 hour day when the two are 24 hours apart.
+    const overnight = time.timeToMinutes(close) < time.timeToMinutes(open);
+    const span = overnight
+      ? time.timeToMinutes(close) + 1440 - time.timeToMinutes(open)
+      : time.timeToMinutes(close) - time.timeToMinutes(open);
+
     CAFE.hours.open = open;
     CAFE.hours.close = close;
-    CAFE.hours.label = `${open} – ${close}`;
+    CAFE.hours.label = span >= 1440
+      ? 'Open 24 hours'
+      : `${time.formatTimeLabel(open)} – ${time.formatTimeLabel(close)}`;
   }
 
   if (body.contact) {

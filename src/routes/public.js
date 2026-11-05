@@ -39,6 +39,52 @@ function overlaps(aStart, aEnd, bStart, bEnd) {
   return aStart < bEnd && bStart < aEnd;
 }
 
+/**
+ * The trading window in minutes. A close time earlier than the open time means
+ * the cafe trades through the night, so the window runs past midnight: opening
+ * at 10:00 and closing at 09:59 becomes 600 → 2039 (09:59 the next morning).
+ */
+function businessWindow() {
+  const open = time.timeToMinutes(CAFE.hours.open);
+  const close = time.timeToMinutes(CAFE.hours.close);
+  if (open === null || close === null) return null;
+  return { open, close: close <= open ? close + 1440 : close };
+}
+
+/**
+ * Place a clock time on the trading day's timeline. Times before the opening
+ * hour belong to the tail of the day, so 02:00 becomes 1560 — two in the
+ * morning after the night that started at 10:00.
+ */
+function toTimeline(clockMinutes, open) {
+  return clockMinutes < open ? clockMinutes + 1440 : clockMinutes;
+}
+
+/** A booked session as [start, end] on its own trading day's timeline. */
+function bookingTimeline(booking, open) {
+  const startClock = time.timeToMinutes(booking.start);
+  const endClock = time.timeToMinutes(booking.end);
+  if (startClock === null || endClock === null) return null;
+
+  const start = toTimeline(startClock, open);
+  let end = toTimeline(endClock, open);
+  if (end <= start) end += 1440;
+  return { start, end };
+}
+
+/** The station ids a booking holds — one for older rows, a list after that. */
+function bookingStationIds(booking) {
+  if (Array.isArray(booking.stationIds) && booking.stationIds.length) return booking.stationIds;
+  return booking.stationId ? [booking.stationId] : [];
+}
+
+/** How many people play on a station, for the group priced setups. */
+function playersFor(station, requested) {
+  const plan = getPlan(station.type);
+  if (!plan || plan.mode !== 'group') return 1;
+  return Math.min(maxPlayers(station.type), Math.max(1, Number(requested) || 1));
+}
+
 function bookingCode() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -59,10 +105,23 @@ function uniqueBookingCode(existing) {
   return code;
 }
 
-function activeBookingsFor(date) {
-  return load('bookings', []).filter(
-    (booking) => booking.date === date && BLOCKING_STATUSES.includes(booking.status),
-  );
+/** Every booked session on a date, on that trading day's timeline. */
+function bookedSlots(date, window) {
+  return load('bookings', [])
+    .filter(
+      (booking) => booking.date === date && BLOCKING_STATUSES.includes(booking.status),
+    )
+    .map((booking) => {
+      const range = bookingTimeline(booking, window.open);
+      if (!range) return null;
+      return {
+        start: range.start,
+        end: range.end,
+        stationIds: bookingStationIds(booking),
+        booking,
+      };
+    })
+    .filter(Boolean);
 }
 
 /* Rate limiting: at most 8 booking attempts per IP every 10 minutes. */
@@ -158,7 +217,7 @@ router.get('/availability', (req, res) => {
     return res.status(400).json({ ok: false, error: 'Please choose a valid date.' });
   }
 
-  const busy = activeBookingsFor(date);
+  const busy = bookedSlots(date, businessWindow());
 
   const stations = STATIONS.map((station) => ({
     id: station.id,
@@ -166,13 +225,13 @@ router.get('/availability', (req, res) => {
     label: station.label,
     spec: station.spec,
     busy: busy
-      .filter((booking) => booking.stationId === station.id)
-      .map((booking) => ({
-        start: booking.start,
-        end: booking.end,
-        status: booking.status,
-      }))
-      .sort((a, b) => a.start.localeCompare(b.start)),
+      .filter((slot) => slot.stationIds.includes(station.id))
+      .sort((a, b) => a.start - b.start)
+      .map((slot) => ({
+        start: time.minutesToTime(slot.start),
+        end: time.minutesToTime(slot.end),
+        status: slot.booking.status,
+      })),
   }));
 
   res.json({
@@ -196,11 +255,16 @@ router.post('/bookings', (req, res) => {
   const body = req.body || {};
   const name = String(body.name || '').trim();
   const phone = String(body.phone || '').trim();
-  const stationId = String(body.stationId || '').trim();
   const date = String(body.date || '').trim();
   const start = String(body.start || '').trim();
   const durationMinutes = Number(body.duration || 0);
   const notes = String(body.notes || '').trim().slice(0, 300);
+
+  // A booking can hold several stations — a squad often takes a row of PCs.
+  const requested = Array.isArray(body.stationIds) ? body.stationIds : [body.stationId];
+  const stationIds = Array.from(
+    new Set(requested.map((id) => String(id || '').trim()).filter(Boolean)),
+  );
 
   if (name.length < 2 || name.length > 50) {
     return res.status(400).json({ ok: false, error: 'Please enter your name (2 to 50 characters).' });
@@ -209,9 +273,20 @@ router.post('/bookings', (req, res) => {
     return res.status(400).json({ ok: false, error: 'Please enter a valid 10 digit mobile number.' });
   }
 
-  const station = STATIONS.find((item) => item.id === stationId);
-  if (!station) {
-    return res.status(400).json({ ok: false, error: 'That gaming station does not exist.' });
+  if (!stationIds.length) {
+    return res.status(400).json({ ok: false, error: 'Please choose at least one gaming station.' });
+  }
+  if (stationIds.length > STATIONS.length) {
+    return res.status(400).json({ ok: false, error: 'That is more stations than we have. Please pick again.' });
+  }
+
+  const stations = [];
+  for (const id of stationIds) {
+    const station = STATIONS.find((item) => item.id === id);
+    if (!station) {
+      return res.status(400).json({ ok: false, error: `Station ${id} does not exist.` });
+    }
+    stations.push(station);
   }
 
   if (!time.isValidISODate(date)) {
@@ -230,56 +305,74 @@ router.post('/bookings', (req, res) => {
     });
   }
 
-  if (!isValidDuration(station.type, durationMinutes)) {
-    const plan = getPlan(station.type);
+  // The length has to be sold on every station in the booking.
+  const unsupported = stations.find((station) => !isValidDuration(station.type, durationMinutes));
+  if (unsupported) {
+    const plan = getPlan(unsupported.type);
     return res.status(400).json({
       ok: false,
       error: `Please pick a valid duration for ${plan ? plan.label : 'this station'}.`,
     });
   }
 
-  const startMinutes = time.timeToMinutes(start);
-  if (startMinutes === null || startMinutes % CAFE.slotMinutes !== 0) {
+  const window = businessWindow();
+
+  const startClock = time.timeToMinutes(start);
+  if (startClock === null || startClock % CAFE.slotMinutes !== 0) {
     return res.status(400).json({ ok: false, error: 'Please pick a valid start time.' });
   }
 
-  const openMinutes = time.timeToMinutes(CAFE.hours.open);
-  const closeMinutes = time.timeToMinutes(CAFE.hours.close);
+  // Work on the trading day's timeline so a 22:00–02:00 session stays one unit.
+  const startMinutes = toTimeline(startClock, window.open);
   const endMinutes = startMinutes + durationMinutes;
 
-  if (startMinutes < openMinutes || endMinutes > closeMinutes) {
+  if (startMinutes < window.open || endMinutes > window.close) {
     return res.status(400).json({
       ok: false,
-      error: `We are open ${CAFE.hours.label}. This slot falls outside our timings.`,
+      error:
+        `Our slots run ${time.formatTimeLabel(CAFE.hours.open)} to ` +
+        `${time.formatTimeLabel(CAFE.hours.close)}. This slot falls outside our timings.`,
     });
   }
 
-  if (daysAhead === 0 && startMinutes <= time.minutesOfDay()) {
-    return res.status(400).json({
-      ok: false,
-      error: 'That time has already passed today. Please pick a later slot or another day.',
-    });
+  if (daysAhead === 0) {
+    const nowClock = time.minutesOfDay();
+    // Before the opening hour the current trading day has not started yet, so
+    // every slot on it is still ahead.
+    if (nowClock >= window.open && startMinutes <= nowClock) {
+      return res.status(400).json({
+        ok: false,
+        error: 'That time has already passed today. Please pick a later slot or another day.',
+      });
+    }
   }
 
-  const plan = getPlan(station.type);
-  const players = plan && plan.mode === 'group'
-    ? Math.min(maxPlayers(station.type), Math.max(1, Number(body.players) || 1))
-    : 1;
-
-  const end = time.minutesToTime(endMinutes);
-
-  const clash = activeBookingsFor(date).find(
-    (booking) =>
-      booking.stationId === station.id &&
-      overlaps(startMinutes, endMinutes, time.timeToMinutes(booking.start), time.timeToMinutes(booking.end)),
+  const slots = bookedSlots(date, window);
+  const clash = slots.find(
+    (slot) =>
+      slot.stationIds.some((id) => stationIds.includes(id)) &&
+      overlaps(startMinutes, endMinutes, slot.start, slot.end),
   );
 
   if (clash) {
+    const clashId = clash.stationIds.find((id) => stationIds.includes(id));
+    const clashStation = STATIONS.find((item) => item.id === clashId);
     return res.status(409).json({
       ok: false,
-      error: `${station.label} is already booked from ${time.formatTimeLabel(clash.start)} to ${time.formatTimeLabel(clash.end)}. Please choose another slot.`,
+      error:
+        `${clashStation ? clashStation.label : 'That station'} is already booked from ` +
+        `${time.formatTimeLabel(clash.booking.start)} to ` +
+        `${time.formatTimeLabel(clash.booking.end)}. Please choose another slot.`,
     });
   }
+
+  const labels = stations.map((station) => station.label);
+  const types = Array.from(new Set(stations.map((station) => station.type)));
+  const players = Math.max(...stations.map((station) => playersFor(station, body.players)));
+  const quotedTotal = stations.reduce(
+    (sum, station) => sum + quote(station.type, durationMinutes, playersFor(station, body.players)).total,
+    0,
+  );
 
   const bookings = load('bookings', []);
   const booking = {
@@ -287,16 +380,18 @@ router.post('/bookings', (req, res) => {
     code: uniqueBookingCode(bookings),
     name,
     phone: normalisePhone(phone),
-    stationId: station.id,
-    stationLabel: station.label,
-    stationType: station.type,
+    stationId: stations[0].id,
+    stationIds: stations.map((station) => station.id),
+    stationLabel: labels.join(' + '),
+    stationLabels: labels,
+    stationType: types.length === 1 ? types[0] : 'MIXED',
     date,
-    start: time.minutesToTime(startMinutes),
-    end,
+    start: time.minutesToTime(startClock),
+    end: time.minutesToTime(endMinutes),
     durationMinutes,
     players,
     notes,
-    quotedTotal: quote(station.type, durationMinutes, players).total,
+    quotedTotal,
     status: 'pending',
     adminNote: '',
     createdAt: new Date().toISOString(),
@@ -311,8 +406,8 @@ router.post('/bookings', (req, res) => {
     body:
       `${booking.name} · ${booking.phone}\n` +
       `${booking.stationLabel} · ${time.formatDateLabel(date)} · ` +
-      `${time.formatTimeLabel(booking.start)}–${time.formatTimeLabel(end)}\n` +
-      `${formatMoney(booking.quotedTotal)} · ${booking.players} player(s)`,
+      `${time.formatTimeLabel(booking.start)}–${time.formatTimeLabel(booking.end)}\n` +
+      `${formatMoney(booking.quotedTotal)} · ${stations.length} station(s)`,
     url: '/admin',
     tag: `booking-${booking.id}`,
   }).catch((error) => console.error('[push] booking alert failed:', error.message));
@@ -323,7 +418,7 @@ router.post('/bookings', (req, res) => {
     code: booking.code,
     dateLabel: time.formatDateLabel(date),
     startLabel: time.formatTimeLabel(booking.start),
-    endLabel: time.formatTimeLabel(end),
+    endLabel: time.formatTimeLabel(booking.end),
   });
 });
 

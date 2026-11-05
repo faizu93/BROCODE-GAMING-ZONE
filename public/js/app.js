@@ -136,7 +136,7 @@
     date: '',
     start: '',
     duration: 0,
-    stationId: '',
+    stationIds: [],
     players: 1,
     busy: false,
   };
@@ -200,7 +200,7 @@
 
     $('#bookingBlurb').textContent =
       'Pick a day, a start time and how long you want to play. We show you exactly which ' +
-      'stations are still free.';
+      'stations are still free — and you can book several gaming PCs for your squad in one go.';
 
     const pcCount = state.stations.filter((s) => s.type === 'PC').length;
     const controllerCount = state.stations.filter((s) => s.type === 'PS5C').length;
@@ -358,15 +358,22 @@
     return state.rates[type] || null;
   }
 
-  function durationsFor(type) {
-    const plan = planFor(type);
-    return plan ? plan.durations.slice() : [];
-  }
-
   function allDurations() {
     const set = new Set();
     Object.values(state.rates).forEach((plan) => plan.durations.forEach((d) => set.add(d)));
     return Array.from(set).sort((a, b) => a - b);
+  }
+
+  /** Durations that every one of these station types can be booked for. */
+  function commonDurations(types) {
+    const plans = types.map(planFor).filter(Boolean);
+    if (!plans.length) return allDurations();
+
+    const shared = plans
+      .map((plan) => plan.durations)
+      .reduce((kept, list) => kept.filter((minutes) => list.includes(minutes)));
+
+    return shared.length ? shared.slice().sort((a, b) => a - b) : allDurations();
   }
 
   /** Mirrors the server pricing: hours x hourly rate, plus the half hour rate. */
@@ -397,10 +404,28 @@
     return { total: timePriceFor(plan, minutes, count), players: count, squadPackage: false };
   }
 
-  function currentQuote() {
-    const station = stationById(state.stationId);
-    if (!station) return null;
-    return quoteFor(station.type, state.duration, state.players);
+  function selectedStations() {
+    return state.stationIds.map(stationById).filter(Boolean);
+  }
+
+  /** The group priced setup in the selection, if one is picked. */
+  function groupStation() {
+    return selectedStations().find((station) => {
+      const plan = planFor(station.type);
+      return plan && plan.group;
+    }) || null;
+  }
+
+  /** What the whole selection costs for the chosen length of time. */
+  function selectedTotal() {
+    const chosen = selectedStations();
+    if (!chosen.length) return 0;
+
+    return chosen.reduce((sum, station) => {
+      const plan = planFor(station.type);
+      const players = plan && plan.group ? state.players : 1;
+      return sum + quoteFor(station.type, state.duration, players).total;
+    }, 0);
   }
 
   /* ---------------------------------------------------------------- helpers */
@@ -422,20 +447,36 @@
     return aStart < bEnd && bStart < aEnd;
   }
 
-  function clashFor(station, startMinutes, durationMinutes) {
-    const list = state.availability[station.id] || [];
-    const end = startMinutes + durationMinutes;
-
-    return list.find((slot) =>
-      overlaps(startMinutes, end, timeToMinutes(slot.start), timeToMinutes(slot.end))) || null;
-  }
-
   function openMinutes() {
     return timeToMinutes(state.hours.open);
   }
 
+  /** Close time on the trading day's scale — 09:59 the next morning is 2039. */
   function closeMinutes() {
-    return timeToMinutes(state.hours.close);
+    const close = timeToMinutes(state.hours.close);
+    const open = openMinutes();
+    return close <= open ? close + 1440 : close;
+  }
+
+  /** Clock times before the opening hour sit at the tail of the trading day. */
+  function toTimeline(minutes) {
+    return minutes < openMinutes() ? minutes + 1440 : minutes;
+  }
+
+  /** A booked window from /api/availability, as [start, end] on the timeline. */
+  function slotRange(slot) {
+    const start = toTimeline(timeToMinutes(slot.start));
+    let end = toTimeline(timeToMinutes(slot.end));
+    if (end <= start) end += 1440;
+    return { start, end };
+  }
+
+  function clashFor(station, startAt, endAt) {
+    const list = state.availability[station.id] || [];
+    return list.find((slot) => {
+      const range = slotRange(slot);
+      return overlaps(startAt, endAt, range.start, range.end);
+    }) || null;
   }
 
   /* ------------------------------------------------------------- rendering */
@@ -449,51 +490,70 @@
     const previous = select.value;
     const options = [];
 
+    // The trading day opens at `earliest` and runs into the next morning, so a
+    // slot "after midnight" simply comes later on the same day.
+    const nowClock = nowMinutes();
+    const pastOnToday = isToday(state.date) && nowClock >= earliest ? nowClock : -1;
+
     for (let minutes = earliest; minutes <= latest; minutes += step) {
-      if (isToday(state.date) && minutes <= nowMinutes()) continue;
+      if (minutes <= pastOnToday) continue;
       options.push(minutes);
     }
 
     select.innerHTML = options.length
       ? options.map((minutes) => {
           const value = minutesToTime(minutes);
-          return `<option value="${value}">${formatTimeLabel(value)}</option>`;
+          const nextMorning = minutes >= 1440 ? ' (next morning)' : '';
+          return `<option value="${value}">${formatTimeLabel(value)}${nextMorning}</option>`;
         }).join('')
       : '<option value="">No slots left for this date</option>';
 
-    if (options.length && previous && options.includes(timeToMinutes(previous))) {
+    if (options.length && previous && options.some((minutes) => minutesToTime(minutes) === previous)) {
       select.value = previous;
     }
 
     state.start = select.value || '';
     $('#bkStartHint').textContent = options.length
-      ? `Last start time is ${formatTimeLabel(minutesToTime(latest))}`
-      : `We close at ${formatTimeLabel(state.hours.close)}. Try another day.`;
+      ? `Last start time is ${formatTimeLabel(minutesToTime(latest))} · open ${state.hours.label}`
+      : `${state.hours.label} — but every slot for this day has gone. Try another day.`;
   }
 
   function renderDurationOptions() {
     const select = $('#bkDuration');
-    const station = stationById(state.stationId);
-    const list = station ? durationsFor(station.type) : allDurations();
+    const chosen = selectedStations();
+    const list = chosen.length
+      ? commonDurations(chosen.map((station) => station.type))
+      : allDurations();
 
     const previous = Number(select.value) || 0;
     select.innerHTML = list
       .map((minutes) => `<option value="${minutes}">${formatDuration(minutes)}</option>`)
       .join('');
 
-    // Keep the closest duration that is still valid for this station type.
+    // Keep the closest duration that is still valid for this selection.
     const smaller = list.filter((minutes) => minutes <= previous);
     select.value = String(smaller.length ? smaller[smaller.length - 1] : list[0]);
 
     state.duration = Number(select.value) || 30;
-    $('#bkDurationHint').textContent = station
-      ? `${formatDuration(state.duration)} on ${station.label}`
-      : 'Choose a duration to see live availability';
+    $('#bkDurationHint').textContent = chosen.length
+      ? `${formatDuration(state.duration)} on ${chosen.map((station) => station.label).join(', ')}`
+      : 'Choose your stations to see the durations available';
   }
 
   function renderStationGrid() {
-    const startMinutes = timeToMinutes(state.start);
-    const ready = startMinutes !== null && state.duration > 0;
+    const startClock = timeToMinutes(state.start);
+    const ready = startClock !== null && state.duration > 0;
+
+    const startAt = ready ? toTimeline(startClock) : null;
+    const endAt = ready ? startAt + state.duration : null;
+
+    // Drop anything that got taken while the customer was choosing.
+    if (ready) {
+      state.stationIds = state.stationIds.filter((id) => {
+        const station = stationById(id);
+        return station && !clashFor(station, startAt, endAt);
+      });
+    }
 
     const groups = { PC: $('#pcGrid'), PS5C: $('#ps5cGrid'), PS5W: $('#ps5wGrid') };
     let freeCount = 0;
@@ -502,17 +562,18 @@
       const stations = state.stations.filter((station) => station.type === type);
 
       groups[type].innerHTML = stations.map((station) => {
-        const clash = ready ? clashFor(station, startMinutes, state.duration) : null;
+        const clash = ready ? clashFor(station, startAt, endAt) : null;
         if (!clash) freeCount += 1;
 
+        const chosen = state.stationIds.includes(station.id);
         const subtitle = clash
           ? `Booked ${formatTimeLabel(clash.start)}–${formatTimeLabel(clash.end)}`
-          : (ready ? 'Available' : station.spec);
+          : (ready ? (chosen ? 'Selected' : 'Available') : station.spec);
 
         return `
           <button type="button" class="station" data-station="${station.id}"
                   ${clash ? 'disabled' : ''}
-                  aria-pressed="${state.stationId === station.id ? 'true' : 'false'}"
+                  aria-pressed="${chosen ? 'true' : 'false'}"
                   title="${escapeHtml(station.spec)}">
             <strong>${escapeHtml(station.label.replace('Gaming ', ''))}</strong>
             <span>${escapeHtml(subtitle)}</span>
@@ -523,9 +584,11 @@
     const pcCount = state.stations.filter((s) => s.type === 'PC').length;
     const controllerCount = state.stations.filter((s) => s.type === 'PS5C').length;
     const wheelCount = state.stations.filter((s) => s.type === 'PS5W').length;
-    $('#pcCount').textContent = `· ${pcCount} stations`;
+    $('#pcCount').textContent = `· ${pcCount} stations · pick as many as you need`;
     $('#ps5cCount').textContent = `· ${controllerCount} setup${controllerCount === 1 ? '' : 's'}`;
     $('#ps5wCount').textContent = `· ${wheelCount} setup${wheelCount === 1 ? '' : 's'}`;
+
+    const picked = state.stationIds.length;
 
     if (!ready) {
       $('#availabilityNote').textContent = 'Pick a date, start time and duration to see availability.';
@@ -533,22 +596,18 @@
       $('#availabilityNote').textContent =
         `${freeCount} of ${state.stations.length} stations free from ` +
         `${formatTimeLabel(state.start)} for ${formatDuration(state.duration)} ` +
-        `on ${formatDateLabel(state.date)}.`;
-    }
-
-    const station = stationById(state.stationId);
-    if (station && ready && clashFor(station, startMinutes, state.duration)) {
-      state.stationId = '';
+        `on ${formatDateLabel(state.date)}` +
+        (picked ? ` · ${picked} selected` : '');
     }
   }
 
   function renderPlayerField() {
-    const station = stationById(state.stationId);
+    const station = groupStation();
     const plan = station ? planFor(station.type) : null;
     const wrap = $('#bkPlayersWrap');
     const select = $('#bkPlayers');
 
-    if (!plan || !plan.group) {
+    if (!plan) {
       wrap.hidden = true;
       state.players = 1;
       return;
@@ -580,12 +639,14 @@
   }
 
   function renderSummary() {
-    const station = stationById(state.stationId);
-    const plan = station ? planFor(station.type) : null;
-    const quote = currentQuote();
+    const chosen = selectedStations();
+    const hasGroup = Boolean(groupStation());
+    const total = chosen.length ? selectedTotal() : null;
 
     const lines = [
-      ['Station', station ? station.label : 'Not selected'],
+      ['Stations', chosen.length
+        ? chosen.map((station) => station.label).join(', ')
+        : 'Not selected'],
       ['Date', state.date ? formatDateLabel(state.date) : '—'],
       ['Time', state.start
         ? `${formatTimeLabel(state.start)} – ${formatTimeLabel(minutesToTime(timeToMinutes(state.start) + state.duration))}`
@@ -593,23 +654,21 @@
       ['Duration', state.duration ? formatDuration(state.duration) : '—'],
     ];
 
-    if (station && plan && plan.group) {
+    if (hasGroup) {
       lines.push(['Players', `${state.players}`]);
     }
 
-    if (quote) {
-      if (quote.squadPackage) {
-        lines.push(['Squad deal (4 players)', formatMoney(quote.total)]);
-      } else {
-        lines.push(['Estimated charge', formatMoney(quote.total)]);
-      }
+    if (total !== null) {
+      lines.push(['Estimated charge', formatMoney(total)]);
     }
 
     $('#summaryLines').innerHTML = lines.map(([label, value]) => `
       <div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
 
-    $('#summaryTotal').textContent = formatMoney(quote ? quote.total : 0);
-    $('#summaryStatus').textContent = station ? 'Ready to book' : 'Pending';
+    $('#summaryTotal').textContent = formatMoney(total === null ? 0 : total);
+    $('#summaryStatus').textContent = chosen.length
+      ? `${chosen.length} station${chosen.length === 1 ? '' : 's'} ready`
+      : 'Pending';
   }
 
   function renderAll() {
@@ -970,7 +1029,7 @@
       if (!value) return;
 
       state.date = value;
-      state.stationId = '';
+      state.stationIds = [];
       resetTicket();
       showBookingError('');
       loadAvailability();
@@ -996,7 +1055,11 @@
       const button = event.target.closest('.station');
       if (!button || button.disabled) return;
 
-      state.stationId = button.dataset.station;
+      const id = button.dataset.station;
+      const at = state.stationIds.indexOf(id);
+      if (at === -1) state.stationIds.push(id);
+      else state.stationIds.splice(at, 1);
+
       resetTicket();
       showBookingError('');
       renderDurationOptions();
@@ -1015,7 +1078,7 @@
     $('#ticketReset').addEventListener('click', () => {
       resetTicket();
       $('#bookingForm').reset();
-      state.stationId = '';
+      state.stationIds = [];
       state.players = 1;
       if (!dateInput.value) dateInput.value = state.date;
       state.date = dateInput.value;
@@ -1044,10 +1107,10 @@
     event.preventDefault();
 
     const button = $('#bkSubmit');
-    const station = stationById(state.stationId);
+    const chosen = selectedStations();
 
-    if (!station) {
-      showBookingError('Please choose a gaming station to continue.');
+    if (!chosen.length) {
+      showBookingError('Please choose at least one gaming station to continue.');
       return;
     }
     if (!state.start) {
@@ -1065,7 +1128,7 @@
         body: {
           name: $('#bkName').value.trim(),
           phone: $('#bkPhone').value.trim(),
-          stationId: station.id,
+          stationIds: chosen.map((station) => station.id),
           date: state.date,
           start: state.start,
           duration: state.duration,

@@ -32,10 +32,13 @@ export const CAFE = {
     instagram: '',
   },
 
+  // The cafe trades around the clock. "close" being earlier than "open" means
+  // the day runs past midnight: a trading day starts at 10:00 and ends at
+  // 09:59 the next morning, so night slots are bookable too.
   hours: {
-    open: '11:00',
-    close: '23:00',
-    label: '11:00 AM – 11:00 PM',
+    open: '10:00',
+    close: '09:59',
+    label: 'Open 24 hours',
     days: 'Open all 7 days',
   },
 
