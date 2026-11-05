@@ -1,0 +1,8 @@
+node_modules/
+npm-debug.log*
+
+# Runtime database — lives on the host's persistent disk, not in Git.
+data/
+
+.env
+.DS_Store

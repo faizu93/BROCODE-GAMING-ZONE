@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bro Code Gaming Zone | Gaming Cafe in Kalwa Naka, Thane — Book Your Slot</title>
+  <meta name="description" content="Bro Code Gaming Zone, Kalwa Naka, Thane. 8 high refresh-rate gaming PCs and a PlayStation 5 zone. Book your slot online, check live offers and tournament updates.">
+  <link rel="canonical" href="https://brocode-gaming-zone.onrender.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Bro Code Gaming Zone">
+  <meta property="og:url" content="https://brocode-gaming-zone.onrender.com/">
+  <meta property="og:title" content="Bro Code Gaming Zone | Gaming Cafe in Kalwa Naka, Thane">
+  <meta property="og:description" content="8 high refresh-rate gaming PCs and a PlayStation 5 zone. Book your slot online, check live offers and tournament updates.">
+  <meta name="twitter:card" content="summary">
+  <meta name="theme-color" content="#07070a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2307070a'/><text x='16' y='23' font-family='Arial' font-size='16' font-weight='bold' fill='%23ff1f3d' text-anchor='middle'>BC</text></svg>">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top">
+      <span class="brand-mark">BC</span>
+      <span class="brand-text">
+        <strong>BRO CODE</strong>
+        <em>GAMING ZONE</em>
+      </span>
+    </a>
+
+    <nav class="nav-links" id="navLinks">
+      <a href="#pricing">Pricing</a>
+      <a href="#booking">Book a slot</a>
+      <a href="#offers">Offers</a>
+      <a href="#tournaments">Tournaments</a>
+      <a href="#visit">Visit us</a>
+    </nav>
+
+    <div class="nav-cta">
+      <a class="btn btn-ghost btn-sm js-whatsapp" target="_blank" rel="noopener">WhatsApp</a>
+      <a class="btn btn-primary btn-sm" href="#booking">Book now</a>
+      <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false">☰</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ------------------------------------------------------------------ hero -->
+  <section class="hero" id="top">
+    <div class="hero-bg" id="heroBg"></div>
+    <div class="wrap hero-inner">
+      <div>
+        <span class="eyebrow" id="heroEyebrow">Kalwa Naka · Thane</span>
+        <h1>
+          BRO CODE
+          <span>GAMING ZONE</span>
+        </h1>
+        <p class="hero-tagline" id="heroTagline">Squad Up. Level Up. Dominate.</p>
+        <p class="lead" id="heroIntro">
+          High refresh-rate gaming PCs, a PlayStation 5 zone and a crowd that plays to win.
+        </p>
+
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#booking">Book your slot</a>
+          <a class="btn" href="#pricing">See pricing</a>
+        </div>
+
+        <div class="hero-stats" id="heroStats"></div>
+      </div>
+
+      <aside class="hero-card">
+        <span class="chip">Today's rate card</span>
+        <h3 style="margin-top:16px">Slot charges</h3>
+        <div id="quickRates" style="margin-top:6px"></div>
+        <div class="note-strip" id="quickNote">
+          PS5 controller charge: Solo Rs.100 · Duo Rs.160 · Trio Rs.240 · Squad Rs.320
+        </div>
+        <a class="btn btn-primary btn-full" style="margin-top:20px" href="#booking">Check availability</a>
+      </aside>
+    </div>
+  </section>
+
+  <!-- --------------------------------------------------------------- ticker -->
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track" id="tickerTrack"></div>
+  </div>
+
+  <!-- -------------------------------------------------------------- pricing -->
+  <section class="section" id="pricing">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Rate card</span>
+        <h2>Simple pricing.<br>No hidden charges.</h2>
+        <p id="pricingBlurb">
+          Pay only for the time you play. Longer sessions get better value, and squads on the
+          PlayStation pay less per person.
+        </p>
+      </div>
+      <div class="rate-grid" id="rateGrid"></div>
+      <div class="note-strip" id="pricingNote"></div>
+    </div>
+  </section>
+
+  <!-- -------------------------------------------------------------- booking -->
+  <section class="section" id="booking">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Slot booking</span>
+        <h2>Lock your station.</h2>
+        <p id="bookingBlurb">
+          Pick a day, a start time and how long you want to play. We will show you exactly
+          which stations are still free.
+        </p>
+      </div>
+
+      <div class="booking-shell">
+        <form class="panel" id="bookingForm" novalidate>
+          <div class="form-msg" id="bkError"></div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="bkDate">1 · Date</label>
+              <input type="date" id="bkDate" required>
+              <div class="hint" id="bkDateHint"></div>
+            </div>
+            <div class="field">
+              <label for="bkStart">2 · Start time</label>
+              <select id="bkStart" required></select>
+              <div class="hint" id="bkStartHint">Slots every 30 minutes</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="bkDuration">3 · How long?</label>
+            <select id="bkDuration" required></select>
+            <div class="hint" id="bkDurationHint">Choose a duration to see live availability</div>
+          </div>
+
+          <div class="field js-ps5-only" id="bkPlayersWrap" hidden>
+            <label for="bkPlayers">Players on this PS5</label>
+            <select id="bkPlayers"></select>
+            <div class="hint" id="bkPlayersHint"></div>
+          </div>
+
+          <div class="field">
+            <label>4 · Choose your station</label>
+            <div class="station-group">
+              <div class="station-group__title">Gaming PCs <span id="pcCount" class="muted"></span></div>
+              <div class="station-grid" id="pcGrid"></div>
+            </div>
+            <div class="station-group">
+              <div class="station-group__title">PlayStation 5 <span id="ps5Count" class="muted"></span></div>
+              <div class="station-grid" id="ps5Grid"></div>
+            </div>
+            <div class="hint" id="availabilityNote"></div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="bkName">5 · Your name</label>
+              <input type="text" id="bkName" placeholder="e.g. Rahul Verma" maxlength="50" required autocomplete="name">
+            </div>
+            <div class="field">
+              <label for="bkPhone">6 · Mobile number</label>
+              <input type="tel" id="bkPhone" placeholder="10 digit mobile" maxlength="15" required autocomplete="tel" inputmode="numeric">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="bkNotes">Anything we should know? (optional)</label>
+            <textarea id="bkNotes" maxlength="300" placeholder="Bringing my own controller, squad of 4 coming, etc."></textarea>
+          </div>
+
+          <button class="btn btn-primary btn-full" type="submit" id="bkSubmit">Confirm my slot</button>
+
+          <div class="ticket" id="bkTicket" style="margin-top:22px">
+            <h4>Booking received</h4>
+            <div class="code" id="ticketCode">—</div>
+            <p id="ticketSummary"></p>
+            <p id="ticketNote">We will confirm it on WhatsApp shortly. Show this code at the counter.</p>
+            <div class="ticket-actions">
+              <a class="btn btn-whatsapp btn-sm js-whatsapp" target="_blank" rel="noopener" id="ticketWhatsapp">Send on WhatsApp</a>
+              <button class="btn btn-quiet btn-sm" type="button" id="ticketReset">Book another slot</button>
+            </div>
+
+            <div class="pay-panel" id="bkPay" hidden>
+              <h4>Pay online · UPI</h4>
+              <div class="pay-grid">
+                <div class="pay-qr">
+                  <img id="payQr" alt="UPI payment QR code" width="220" height="220">
+                </div>
+                <div class="pay-info">
+                  <div class="pay-amount">Amount due <b id="payAmount">—</b></div>
+                  <div class="pay-upi">
+                    <span class="pay-upi__id" id="payUpiId">—</span>
+                    <button type="button" class="btn btn-quiet btn-sm" id="payCopy">Copy UPI ID</button>
+                  </div>
+                  <p class="muted" id="payNote"></p>
+                  <a class="btn btn-whatsapp btn-sm" id="payWhatsapp" target="_blank" rel="noopener">Send payment screenshot</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <aside class="panel summary" id="summaryPanel">
+          <div class="summary-title">
+            <span>Your booking</span>
+            <span class="chip" id="summaryStatus">Pending</span>
+          </div>
+
+          <dl class="summary-lines" id="summaryLines"></dl>
+
+          <div class="summary-total">
+            <span>Estimated total</span>
+            <b id="summaryTotal">Rs.0</b>
+          </div>
+
+          <div class="hint" style="margin-top:14px" id="summaryHint">
+            Pay at the counter. Prices are for the station you pick.
+          </div>
+
+          <hr style="border:0;border-top:1px solid var(--line);margin:24px 0">
+
+          <div class="summary-title"><span>Already booked?</span></div>
+          <div class="track-row">
+            <input type="text" id="trackCode" placeholder="BC-XXXX" maxlength="12">
+            <button class="btn btn-quiet btn-sm" type="button" id="trackBtn">Check</button>
+          </div>
+          <div class="track-result" id="trackResult"></div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- --------------------------------------------------------------- offers -->
+  <section class="section" id="offers">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Live offers</span>
+        <h2>Running deals.</h2>
+        <p>All offers are live right now. Mention the offer name at the counter to claim it.</p>
+      </div>
+      <div class="offer-grid" id="offersGrid"></div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------- tournaments -->
+  <section class="section" id="tournaments">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Tournaments</span>
+        <h2>Compete for the cash.</h2>
+        <p>Register your squad, get the room details on WhatsApp and show up to win.</p>
+      </div>
+      <div class="tournament-grid" id="tournamentsGrid"></div>
+    </div>
+  </section>
+
+  <!-- -------------------------------------------------------------- gallery -->
+  <section class="section section--tight">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Inside the zone</span>
+        <h2>Where the squads meet.</h2>
+      </div>
+      <div class="gallery-grid" id="galleryGrid"></div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- visit -->
+  <section class="section" id="visit">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Visit us</span>
+        <h2>Find the zone.</h2>
+      </div>
+
+      <div class="visit-shell">
+        <div class="panel">
+          <div class="visit-list" id="visitList"></div>
+          <div class="visit-actions">
+            <a class="btn btn-whatsapp js-whatsapp" target="_blank" rel="noopener">Message on WhatsApp</a>
+            <a class="btn btn-quiet js-call">Call the cafe</a>
+          </div>
+        </div>
+        <div class="map-frame" id="mapFrame"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <div class="brand" style="margin-bottom:16px">
+          <span class="brand-mark">BC</span>
+          <span class="brand-text"><strong>BRO CODE</strong><em>GAMING ZONE</em></span>
+        </div>
+        <p id="footerBlurb">
+          Kalwa Naka's home ground for competitive gaming on PC and PlayStation 5.
+        </p>
+      </div>
+      <div>
+        <h4>Explore</h4>
+        <div class="footer-links">
+          <a href="#pricing">Pricing</a>
+          <a href="#booking">Book a slot</a>
+          <a href="#offers">Offers</a>
+          <a href="#tournaments">Tournaments</a>
+        </div>
+      </div>
+      <div>
+        <h4>Reach us</h4>
+        <div class="footer-links" id="footerContact"></div>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span id="footerCopy">© Bro Code Gaming Zone. All rights reserved.</span>
+      <span><a href="/admin" class="muted">Cafe owner login</a></span>
+    </div>
+  </div>
+</footer>
+
+<!-- ------------------------------------------------------------------ modal -->
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal-card">
+    <button class="modal-close" id="modalClose" aria-label="Close">✕</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

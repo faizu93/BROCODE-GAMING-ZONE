@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Owner dashboard — keep it out of search results.
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /api/
+
+Sitemap: https://brocode-gaming-zone.onrender.com/sitemap.xml

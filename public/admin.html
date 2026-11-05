@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Owner Dashboard | Bro Code Gaming Zone</title>
+  <meta name="theme-color" content="#07070a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/admin.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2307070a'/><text x='16' y='23' font-family='Arial' font-size='16' font-weight='bold' fill='%23ff1f3d' text-anchor='middle'>BC</text></svg>">
+</head>
+<body class="admin-body">
+
+<!-- ------------------------------------------------------------------ login -->
+<div class="login-screen" id="loginScreen">
+  <form class="login-card" id="loginForm" novalidate>
+    <div class="brand">
+      <span class="brand-mark">BC</span>
+      <span class="brand-text"><strong>BRO CODE</strong><em>GAMING ZONE</em></span>
+    </div>
+
+    <h1>Owner dashboard</h1>
+    <p class="login-sub">Sign in to manage bookings, offers and tournaments.</p>
+
+    <div class="form-msg" id="loginError"></div>
+
+    <div class="field">
+      <label for="loginUser">Username</label>
+      <input type="text" id="loginUser" value="admin" autocomplete="username" required>
+    </div>
+
+    <div class="field">
+      <label for="loginPass">Password</label>
+      <input type="password" id="loginPass" autocomplete="current-password" required>
+    </div>
+
+    <button class="btn btn-primary btn-full" type="submit" id="loginSubmit">Sign in</button>
+
+    <div class="login-hint">
+      First time here? The default login is <strong>admin</strong> / <strong>brocode@123</strong>.
+      Change it from the Settings tab straight away.
+    </div>
+
+    <p style="margin:20px 0 0;font-size:.88rem">
+      <a href="/" class="muted">← Back to the website</a>
+    </p>
+  </form>
+</div>
+
+<!-- -------------------------------------------------------------- dashboard -->
+<div id="app" hidden>
+  <header class="admin-top">
+    <a class="brand" href="/">
+      <span class="brand-mark">BC</span>
+      <span class="brand-text"><strong>BRO CODE</strong><em>OWNER PANEL</em></span>
+    </a>
+
+    <div class="admin-top__right">
+      <span class="admin-user" id="adminUser">Signed in</span>
+      <a class="btn btn-quiet btn-sm" href="/" target="_blank" rel="noopener">View website</a>
+      <button class="btn btn-ghost btn-sm" id="logoutBtn">Sign out</button>
+    </div>
+  </header>
+
+  <div class="admin-shell">
+    <nav class="admin-tabs" id="adminTabs">
+      <button class="admin-tab active" data-tab="dashboard">Dashboard</button>
+      <button class="admin-tab" data-tab="bookings">Bookings <span class="count" id="tabPendingCount" hidden>0</span></button>
+      <button class="admin-tab" data-tab="offers">Offers</button>
+      <button class="admin-tab" data-tab="tournaments">Tournaments</button>
+      <button class="admin-tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <main class="admin-main">
+
+      <!-- dashboard -->
+      <section class="panel" data-panel="dashboard">
+        <div class="panel-head">
+          <h2>Today at a glance</h2>
+          <span class="muted" id="todayLabel"></span>
+          <span class="spacer"></span>
+          <button class="btn btn-quiet btn-sm" id="refreshDashboard">Refresh</button>
+        </div>
+
+        <div class="stat-grid" id="statGrid"></div>
+
+        <div class="panel-head" style="margin-top:30px">
+          <h2 style="font-size:.86rem">Waiting for your confirmation</h2>
+        </div>
+        <ul class="mini-list" id="pendingList"></ul>
+      </section>
+
+      <!-- bookings -->
+      <section class="panel" data-panel="bookings" hidden>
+        <div class="panel-head">
+          <h2>All bookings</h2>
+          <span class="spacer"></span>
+          <button class="btn btn-quiet btn-sm" id="reloadBookings">Reload</button>
+        </div>
+
+        <div class="filters">
+          <div class="field">
+            <label for="fDate">Date</label>
+            <input type="date" id="fDate">
+          </div>
+          <div class="field">
+            <label for="fStatus">Status</label>
+            <select id="fStatus">
+              <option value="all">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="completed">Completed</option>
+              <option value="declined">Declined</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div class="field grow">
+            <label for="fSearch">Search</label>
+            <input type="text" id="fSearch" placeholder="Name, mobile, code or station">
+          </div>
+          <button class="btn btn-quiet btn-sm" id="clearFilters">Clear</button>
+        </div>
+
+        <div id="bookingCounts" class="muted" style="margin-bottom:14px;font-size:.9rem"></div>
+
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Customer</th>
+                <th>Station</th>
+                <th>Date &amp; time</th>
+                <th>Players</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="bookingsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- offers -->
+      <section class="panel" data-panel="offers" hidden>
+        <div class="panel-head">
+          <h2>Offers</h2>
+          <span class="spacer"></span>
+          <button class="btn btn-primary btn-sm" id="newOfferBtn">New offer</button>
+        </div>
+
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Badge</th>
+                <th>Title</th>
+                <th>Valid till</th>
+                <th>Featured</th>
+                <th>Live</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="offersBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- tournaments -->
+      <section class="panel" data-panel="tournaments" hidden>
+        <div class="panel-head">
+          <h2>Tournaments</h2>
+          <span class="spacer"></span>
+          <button class="btn btn-primary btn-sm" id="newTournamentBtn">New tournament</button>
+        </div>
+
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Game</th>
+                <th>Date</th>
+                <th>Entry</th>
+                <th>Slots</th>
+                <th>Live</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tournamentsBody"></tbody>
+          </table>
+        </div>
+
+        <div class="panel-head" style="margin-top:34px">
+          <h2 style="font-size:.86rem">Team registrations</h2>
+        </div>
+        <div class="table-scroll">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Team</th>
+                <th>Captain</th>
+                <th>Mobile</th>
+                <th>Tournament</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="registrationsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- settings -->
+      <section class="panel" data-panel="settings" hidden>
+        <div class="panel-head">
+          <h2>Shop settings</h2>
+        </div>
+
+        <div class="form-grid">
+          <div class="field">
+            <label for="setOpen">Opens at (24 hour)</label>
+            <input type="time" id="setOpen">
+          </div>
+          <div class="field">
+            <label for="setClose">Closes at (24 hour)</label>
+            <input type="time" id="setClose">
+          </div>
+
+          <div class="field span-2">
+            <label for="setAddress">Address</label>
+            <input type="text" id="setAddress">
+          </div>
+
+          <div class="field span-2">
+            <label for="setMap">Google Maps search text</label>
+            <input type="text" id="setMap">
+          </div>
+
+          <div class="field span-2">
+            <label for="setWhatsapp">WhatsApp numbers (comma separated, with country code)</label>
+            <input type="text" id="setWhatsapp" placeholder="919967191318, 918591691318">
+          </div>
+
+          <div class="field span-2">
+            <button class="btn btn-primary" type="button" id="saveShopBtn">Save shop settings</button>
+          </div>
+        </div>
+
+        <div class="panel-head" style="margin-top:34px">
+          <h2 style="font-size:.86rem">Login details</h2>
+        </div>
+
+        <div class="form-grid">
+          <div class="field">
+            <label for="setUser">Username</label>
+            <input type="text" id="setUser">
+          </div>
+          <div class="field">
+            <label for="setCurrent">Current password</label>
+            <input type="password" id="setCurrent" autocomplete="current-password">
+          </div>
+          <div class="field">
+            <label for="setNew">New password</label>
+            <input type="password" id="setNew" autocomplete="new-password" placeholder="At least 6 characters">
+          </div>
+          <div class="field" style="display:flex;align-items:flex-end">
+            <button class="btn btn-ghost" type="button" id="saveLoginBtn">Update login</button>
+          </div>
+        </div>
+
+        <div class="note-strip" style="margin-top:26px" id="dataNote"></div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<div class="modal admin-modal" id="modal" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <button class="modal-close" id="modalClose" aria-label="Close">✕</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/admin.js"></script>
+</body>
+</html>

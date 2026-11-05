@@ -1,0 +1,45 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploys Bro Code Gaming Zone as a Node web service, for free.
+#
+#   1. Push this project to a GitHub repository.
+#   2. On Render:  New +  ->  Blueprint  ->  pick the repo. Render reads this file.
+#   3. Deploy. Your site goes live at the free address Render shows, usually
+#      https://brocode-gaming-zone.onrender.com
+#
+# If Render gives you a different address (it adds a suffix when a name is
+# already taken), change SITE_URL below to that address and redeploy.
+#
+# FREE PLAN TRADE-OFF
+#   The free instance type sleeps after 15 minutes of no visitors and has no
+#   persistent disk, so bookings that are saved while it runs are lost when it
+#   restarts. Everything works, but the booking history is not permanent.
+#   To keep bookings forever, upgrade the service to "Starter" and add the
+#   disk block further down this file.
+
+services:
+  - type: web
+    name: brocode-gaming-zone
+    runtime: node
+    plan: free
+    region: singapore          # closest Render region to Thane / Mumbai
+    branch: main
+    autoDeploy: true
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Public address of the site. Change this if Render gives a different URL.
+      - key: SITE_URL
+        value: https://brocode-gaming-zone.onrender.com
+
+    # ------------------------------------------------------------------------
+    # UNCOMMENT THIS BLOCK (and change plan: free to plan: starter) to keep the
+    # booking database permanently. A persistent disk needs a paid instance.
+    # ------------------------------------------------------------------------
+    # disk:
+    #   name: brocode-data
+    #   mountPath: /opt/render/project/src/data
+    #   sizeGB: 1
